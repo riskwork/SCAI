@@ -15,6 +15,36 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Kufi Arabic',sans-serif;background:var(--cream);color:var(--ink);direction:rtl;line-height:1.8;font-size:15px;}
+<!-- Language Switch Buttons -->
+<div style="text-align:center; margin-top:20px;">
+    <button onclick="showEnglish()" style="padding:10px 20px; margin:5px;">English</button>
+    <button onclick="showArabic()" style="padding:10px 20px; margin:5px;">العربية</button>
+</div>
+
+<!-- English Content -->
+<div id="english" style="display:none; margin-top:20px; direction:ltr; text-align:left;">
+    <h2>English Content</h2>
+    <p>Welcome to the SCAI project. This is the English version of the content.</p>
+</div>
+
+<!-- Arabic Content -->
+<div id="arabic" style="margin-top:20px; direction:rtl; text-align:right;">
+    <h2>المحتوى العربي</h2>
+    <p>مرحبًا بك في مشروع SCAI. هذا هو المحتوى باللغة العربية.</p>
+</div>
+
+<!-- Language Switch Script -->
+<script>
+function showEnglish() {
+    document.getElementById("english").style.display = "block";
+    document.getElementById("arabic").style.display = "none";
+}
+
+function showArabic() {
+    document.getElementById("english").style.display = "none";
+    document.getElementById("arabic").style.display = "block";
+}
+</script>
 
 /* COVER */
 .cover{background:var(--ink);color:var(--gold);padding:52px 64px;position:relative;overflow:hidden;min-height:260px;display:flex;flex-direction:column;justify-content:center;}
@@ -581,10 +611,7 @@ body{font-family:'Noto Kufi Arabic',sans-serif;background:var(--cream);color:var
 <!-- FOOTER -->
 <div class="footer">
   <div class="footer-title">SCAI — Syrian Company for Automotive Industry</div>
-  <div class="footer-sub" style="margin-bottom:4px">الشركة السورية للصناعات الآلية | الإصدار 4.0 | أبريل 2026 | سري ومحمي</div>
-  <div class="footer-sub">المصادر: SAE International | ISO 3780/3779 | UNECE WP.29 | NHTSA 49 CFR 565 | GSO/SASO | EU Regulation 2018/858</div>
-</div>
-
+  
 <script>
 // ═══ TAB NAVIGATION ═══
 function showTab(id, btn) {
