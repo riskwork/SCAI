@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>خارطة طريق WMI و VIN — SCAI v4</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@300;400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap');
+:root{
+  --ink:#0f1117;--gold:#c8a84b;--gold-pale:#f5e9c0;--cream:#faf6ee;
+  --rust:#8b3a2a;--teal:#1a5c5a;--teal2:#2e8b87;--slate:#2c3e50;
+  --mid:#5a6475;--muted:#8a9099;--border:#ddd5c0;--white:#fff;
+  --purple:#5a3d7a;--orange:#e07b30;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Kufi Arabic',sans-serif;background:var(--cream);color:var(--ink);direction:rtl;line-height:1.8;font-size:15px;}
+
+/* COVER */
+.cover{background:var(--ink);color:var(--gold);padding:52px 64px;position:relative;overflow:hidden;min-height:260px;display:flex;flex-direction:column;justify-content:center;}
+.cover::before{content:'';position:absolute;top:-60px;left:-60px;width:360px;height:360px;border:60px solid rgba(200,168,75,.07);border-radius:50%;}
+.cover-badge{display:inline-block;border:1px solid var(--gold);padding:4px 14px;font-size:11px;letter-spacing:2px;margin-bottom:16px;width:fit-content;}
+.cover h1{font-size:32px;font-weight:700;line-height:1.35;margin-bottom:10px;position:relative;z-index:1;}
+.cover-sub{font-size:14px;color:rgba(200,168,75,.65);margin-bottom:24px;position:relative;z-index:1;}
+.cover-meta{display:flex;gap:32px;font-size:12px;color:rgba(200,168,75,.45);flex-wrap:wrap;position:relative;z-index:1;}
+
+/* NAV */
+.nav-tabs{background:var(--ink);display:flex;overflow-x:auto;border-top:1px solid rgba(200,168,75,.18);scrollbar-width:none;}
+.nav-tabs::-webkit-scrollbar{display:none;}
+.tab-btn{padding:13px 18px;background:none;border:none;color:rgba(200,168,75,.45);font-family:'Noto Kufi Arabic',sans-serif;font-size:13px;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;}
+.tab-btn:hover{color:var(--gold);}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+/* SECTIONS */
+.section{display:none;padding:44px 64px;max-width:1200px;margin:0 auto;}
+.section.active{display:block;}
+.sec-hdr{display:flex;align-items:flex-start;gap:18px;margin-bottom:36px;padding-bottom:22px;border-bottom:1px solid var(--border);}
+.sec-num{width:50px;height:50px;background:var(--ink);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;flex-shrink:0;border-radius:4px;}
+.sec-title h2{font-size:25px;font-weight:700;}
+.sec-title p{color:var(--muted);font-size:13px;margin-top:4px;}
+
+/* CARDS */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-bottom:26px;}
+.card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:20px;position:relative;overflow:hidden;}
+.card-acc{position:absolute;top:0;right:0;width:4px;height:100%;}
+.card h3{font-size:14px;font-weight:700;margin-bottom:7px;}
+.card p{font-size:13px;color:var(--mid);line-height:1.65;}
+.stat{font-size:28px;font-weight:900;color:var(--gold);font-family:'IBM Plex Mono',monospace;}
+
+/* FLOW STEPS */
+.flow-steps{display:flex;flex-direction:column;}
+.flow-step{display:flex;gap:22px;align-items:flex-start;position:relative;padding-bottom:28px;}
+.flow-step:last-child{padding-bottom:0;}
+.flow-step::before{content:'';position:absolute;right:18px;top:46px;width:2px;height:calc(100% - 14px);background:var(--border);}
+.flow-step:last-child::before{display:none;}
+.step-icon{width:38px;height:38px;border-radius:50%;background:var(--ink);color:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;position:relative;z-index:1;}
+.step-body h4{font-size:14px;font-weight:700;margin-bottom:3px;}
+.step-body p{font-size:13px;color:var(--mid);}
+.stag{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-top:5px;}
+.stag-warn{background:#fef3c7;color:#92400e;}
+.stag-ok{background:#d1fae5;color:#065f46;}
+.stag-info{background:#dbeafe;color:#1e40af;}
+
+/* VIN */
+.vin-box{background:var(--ink);border-radius:12px;padding:26px;margin-bottom:22px;font-family:'IBM Plex Mono',monospace;}
+.vin-label{font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:14px;text-align:center;}
+.vin-chars{display:flex;justify-content:center;gap:4px;flex-wrap:wrap;}
+.vc{width:40px;height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:6px;transition:transform .2s;cursor:default;}
+.vc:hover{transform:translateY(-4px);}
+.vc .pos{font-size:9px;margin-bottom:3px;opacity:.65;}
+.vc .ch{font-size:18px;font-weight:600;}
+.wc{background:rgba(200,168,75,.15);color:var(--gold);border:1px solid rgba(200,168,75,.3);}
+.dc{background:rgba(46,139,135,.15);color:#5dd4cf;border:1px solid rgba(46,139,135,.3);}
+.cc{background:rgba(139,58,42,.3);color:#f0a090;border:1px solid rgba(139,58,42,.5);}
+.sc{background:rgba(90,100,117,.2);color:#a0b4c8;border:1px solid rgba(90,100,117,.3);}
+.vleg{display:flex;justify-content:center;gap:18px;margin-top:16px;flex-wrap:wrap;}
+.vleg-i{display:flex;align-items:center;gap:7px;font-size:11px;color:rgba(255,255,255,.55);}
+.vleg-d{width:12px;height:12px;border-radius:3px;}
+
+/* CALCULATOR */
+.calc-box{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:24px;margin-bottom:22px;}
+.calc-box h3{font-size:15px;font-weight:700;margin-bottom:12px;}
+.calc-row{display:flex;gap:10px;margin-bottom:14px;align-items:flex-end;}
+.calc-row input{flex:1;padding:10px 13px;border:1px solid var(--border);border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:15px;letter-spacing:2px;text-transform:uppercase;background:var(--cream);direction:ltr;text-align:center;}
+.calc-row button{padding:10px 20px;background:var(--ink);color:var(--gold);border:none;border-radius:6px;font-family:'Noto Kufi Arabic',sans-serif;font-size:13px;cursor:pointer;}
+.calc-res{display:none;background:var(--ink);color:var(--gold);border-radius:6px;padding:13px;font-family:'IBM Plex Mono',monospace;font-size:13px;direction:ltr;white-space:pre-line;}
+
+/* TABLES */
+.dtable{width:100%;border-collapse:collapse;margin-bottom:20px;}
+.dtable th{background:var(--ink);color:var(--gold);padding:10px 14px;font-size:12px;font-weight:600;text-align:right;letter-spacing:.4px;}
+.dtable td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:top;}
+.dtable tr:nth-child(even) td{background:rgba(0,0,0,.02);}
+.dtable tr:hover td{background:var(--gold-pale);}
+.mono{font-family:'IBM Plex Mono',monospace;direction:ltr;display:inline-block;}
+
+/* CHARTS */
+.chart-box{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:20px;}
+.ct{font-size:14px;font-weight:700;margin-bottom:16px;}
+
+/* GANTT */
+.gantt-wrap{overflow-x:auto;margin-bottom:20px;}
+.gantt{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:20px;min-width:680px;}
+.g-title{font-size:14px;font-weight:700;margin-bottom:16px;}
+.g-hdr{display:flex;margin-bottom:6px;margin-right:170px;}
+.g-mo{flex:1;text-align:center;font-size:10px;color:var(--muted);font-weight:600;}
+.g-row{display:flex;align-items:center;margin-bottom:6px;}
+.g-lbl{width:170px;font-size:11px;text-align:right;padding-left:12px;flex-shrink:0;color:var(--slate);line-height:1.3;}
+.g-trk{flex:1;height:24px;background:var(--cream);border-radius:4px;position:relative;overflow:hidden;}
+.g-bar{position:absolute;top:2px;height:20px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;}
+
+/* CALLOUTS */
+.callout{padding:13px 17px;border-radius:6px;margin-bottom:13px;font-size:13px;display:flex;gap:11px;align-items:flex-start;border-right:4px solid;}
+.co-gold{background:var(--gold-pale);border-color:var(--gold);}
+.co-teal{background:#e6f4f4;border-color:var(--teal);}
+.co-rust{background:#fdecea;border-color:var(--rust);}
+.co-icon{font-size:19px;flex-shrink:0;margin-top:-2px;}
+
+/* BUDGET */
+.bud-grid{background:var(--ink);color:var(--gold);border-radius:8px;padding:20px;margin-bottom:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;text-align:center;}
+.bt{font-size:11px;color:rgba(200,168,75,.55);letter-spacing:1px;margin-bottom:6px;}
+.bv{font-size:24px;font-weight:700;font-family:'IBM Plex Mono',monospace;}
+
+/* PHASE BADGES */
+.pb{display:inline-flex;align-items:center;gap:5px;padding:3px 11px;border-radius:20px;font-size:12px;font-weight:600;color:#fff;margin-bottom:12px;}
+.pb-gold{background:var(--gold);color:var(--ink);}
+.pb-teal{background:var(--teal);}
+.pb-rust{background:var(--rust);}
+
+/* TEMPLATE BOX */
+.tmpl{background:var(--white);border:2px solid var(--gold);border-radius:8px;padding:26px;margin-bottom:20px;position:relative;overflow:hidden;}
+.tmpl-wm{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:50px;font-weight:900;color:rgba(200,168,75,.05);letter-spacing:8px;pointer-events:none;white-space:nowrap;}
+.tmpl h3{font-size:16px;font-weight:700;margin-bottom:3px;}
+.tmpl-sub{font-size:12px;color:var(--muted);margin-bottom:20px;}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+.fgroup{display:flex;flex-direction:column;gap:4px;}
+.fgroup label{font-size:11px;font-weight:600;color:var(--mid);}
+.ffield{border:1px solid var(--border);border-radius:4px;padding:8px 10px;font-size:13px;background:var(--cream);min-height:34px;display:flex;align-items:center;}
+.ffield.fi{background:#fff;border-style:dashed;color:var(--muted);font-style:italic;}
+
+/* ABBREV */
+.cat-btn{padding:5px 14px;border:1px solid var(--border);border-radius:20px;background:var(--white);font-family:'Noto Kufi Arabic',sans-serif;font-size:12px;cursor:pointer;color:var(--mid);transition:all .15s;}
+.cat-btn:hover{border-color:var(--gold);color:var(--ink);}
+.cat-btn.active{background:var(--ink);color:var(--gold);border-color:var(--ink);}
+.ab-row-hidden{display:none!important;}
+.ab-pill{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap;}
+.ab-standards{background:#dbeafe;color:#1e40af;}
+.ab-vin{background:#fef3c7;color:#92400e;}
+.ab-cert{background:#d1fae5;color:#065f46;}
+.ab-phases{background:#ede9fe;color:#5b21b6;}
+.ab-unece{background:#fee2e2;color:#991b1b;}
+.ab-tech{background:#f3f4f6;color:#374151;}
+.ab-market{background:#fce7f3;color:#9d174d;}
+
+/* RISK */
+.risk-badge{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap;}
+.rb-critical{background:#fee2e2;color:#991b1b;}
+.rb-high{background:#fef3c7;color:#92400e;}
+.rb-medium{background:#dbeafe;color:#1e40af;}
+.rb-low{background:#d1fae5;color:#065f46;}
+.risk-level{font-size:11px;font-weight:700;}
+
+/* MISC */
+.divider{height:1px;background:var(--border);margin:26px 0;}
+.hbox{background:var(--gold-pale);border:1px solid var(--gold);border-radius:6px;padding:13px 17px;margin-bottom:16px;font-size:14px;font-weight:500;}
+.cat-head{font-size:16px;font-weight:700;margin-bottom:5px;display:flex;align-items:center;gap:9px;}
+.cat-label{color:#fff;padding:3px 11px;border-radius:4px;font-size:12px;}
+
+/* FOOTER */
+.footer{background:var(--ink);padding:26px 64px;text-align:center;}
+.footer-title{color:var(--gold);font-size:16px;font-weight:700;margin-bottom:5px;}
+.footer-sub{color:rgba(200,168,75,.45);font-size:11px;}
+
+@media(max-width:768px){.cover{padding:26px;}.cover h1{font-size:22px;}.section{padding:18px;}.fg{grid-template-columns:1fr;}.vc{width:32px;height:43px;}.vc .ch{font-size:14px;}}
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="cover-badge">وثيقة فنية استراتيجية — الإصدار 4.0</div>
+  <h1>خارطة طريق الحصول على WMI &amp; VIN<br>لتوطين صناعة السيارات في سوريا</h1>
+  <div class="cover-sub">الشركة السورية للصناعات الآلية — SCAI &nbsp;|&nbsp; Syrian Company for Automotive Industry</div>
+  <div class="cover-meta">
+    <span>📅 أبريل 2026</span><span>📋 الإصدار 4.0</span><span>🏭 خبرة +30 سنة</span><span>🔐 سري</span>
+  </div>
+</div>
+
+<div class="nav-tabs">
+  <button class="tab-btn active" onclick="showTab('overview',this)">📊 نظرة عامة</button>
+  <button class="tab-btn" onclick="showTab('wmi',this)">🏷️ تسجيل WMI</button>
+  <button class="tab-btn" onclick="showTab('vin',this)">🔢 بنية VIN</button>
+  <button class="tab-btn" onclick="showTab('homo',this)">✅ المطابقة</button>
+  <button class="tab-btn" onclick="showTab('phases',this)">🏗️ مراحل التصنيع</button>
+  <button class="tab-btn" onclick="showTab('budget',this)">💰 الميزانية</button>
+  <button class="tab-btn" onclick="showTab('templates',this)">📄 النماذج</button>
+  <button class="tab-btn" onclick="showTab('abbrev',this)">🔤 المختصرات</button>
+  <button class="tab-btn" onclick="showTab('risk',this)">⚠️ إدارة المخاطر</button>
+</div>
+
+<!-- ═══ 1. OVERVIEW ═══ -->
+<div id="tab-overview" class="section active">
+  <div class="sec-hdr"><div class="sec-num">١</div><div class="sec-title"><h2>نظرة عامة ولوحة المؤشرات</h2><p>Executive Overview &amp; KPI Dashboard</p></div></div>
+  <div class="hbox">✦ يمكن لـ SCAI الحصول على شهاداتها الدولية الكاملة خلال <strong>18–24 شهراً</strong> بميزانية <strong>1–3 مليون يورو</strong>، مستفيدةً من رفع العقوبات التاريخي 2025 ونموذج إيران في الحصول على WMI دون عضوية UNECE.</div>
+  <div class="card-grid">
+    <div class="card"><div class="card-acc" style="background:var(--gold)"></div><p style="font-size:11px;color:var(--muted);margin-bottom:5px">مدة الحصول على WMI</p><div class="stat">4 أشهر</div><p>من تقديم الطلب إلى استلام الكود عبر SASMO وSAE</p></div>
+    <div class="card"><div class="card-acc" style="background:var(--teal)"></div><p style="font-size:11px;color:var(--muted);margin-bottom:5px">تكلفة المشروع</p><div class="stat" style="color:var(--teal)">€3M</div><p>شاملة المطابقة الأوروبية والخليجية ونظام VIN الداخلي</p></div>
+    <div class="card"><div class="card-acc" style="background:var(--rust)"></div><p style="font-size:11px;color:var(--muted);margin-bottom:5px">اللوائح المستهدفة</p><div class="stat" style="color:var(--rust)">16+</div><p>لوائح UNECE أساسية للحافلات والمركبات التجارية</p></div>
+    <div class="card"><div class="card-acc" style="background:var(--purple)"></div><p style="font-size:11px;color:var(--muted);margin-bottom:5px">الأسواق المستهدفة</p><div class="stat" style="color:var(--purple)">3</div><p>سوريا + دول الخليج + أوروبا (مرحلة ثالثة)</p></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px">
+    <div class="chart-box"><div class="ct">توزيع الميزانية الإجمالية</div><canvas id="cBudget" style="max-height:280px"></canvas></div>
+    <div class="chart-box"><div class="ct">مقارنة متطلبات الأسواق الثلاثة</div><canvas id="cRadar" style="max-height:280px"></canvas></div>
+  </div>
+  <div class="chart-box"><div class="ct">مستوى انفتاح السوق عقب رفع العقوبات</div><canvas id="cSanctions" style="max-height:240px"></canvas></div>
+  <div class="callout co-gold"><div class="co-icon">⭐</div><div><strong>نقطة محورية:</strong> رُفعت العقوبات الأمريكية يوليو 2025 (المرسوم التنفيذي 14312). SAE International تستطيع الآن معالجة طلبات الكيانات السورية دون أي عائق.</div></div>
+  <div class="callout co-teal"><div class="co-icon">🇮🇷</div><div><strong>النموذج الإيراني:</strong> إيران خودرو وسايبا يمتلكان رموز WMI في النطاق NA–NE رغم عدم انضمام إيران لـ UNECE — دليل على أن WMI مستقل عن العضوية الدولية.</div></div>
+</div>
+
+<!-- ═══ 2. WMI ═══ -->
+<div id="tab-wmi" class="section">
+  <div class="sec-hdr"><div class="sec-num">٢</div><div class="sec-title"><h2>تسجيل رمز WMI لـ SCAI</h2><p>World Manufacturer Identifier Registration</p></div></div>
+  <div class="callout co-rust"><div class="co-icon">⚠️</div><div><strong>التحدي الرئيسي:</strong> سوريا غير مدرجة في جدول ISO 3780:2009. يجب العمل مع SASMO وSAE لاستحداث كود دولة ضمن نطاق N أو P أو R.</div></div>
+  <div class="flow-steps">
+    <div class="flow-step"><div class="step-icon">١</div><div class="step-body"><h4>التواصل مع SASMO</h4><p>المنظمة السورية للمقاييس — العضو الوطني لـ ISO — هي الجهة المخوّلة بترشيح SCAI.</p><span class="stag stag-warn">الأولوية القصوى — ابدأ فوراً</span></div></div>
+    <div class="flow-step"><div class="step-icon">٢</div><div class="step-body"><h4>تجهيز ملف التقديم</h4><p>وثيقة تأسيس + ترخيص صناعي + عنوان المصنع + أنواع المركبات + الطاقة الإنتاجية + مخطط VDS/VIS + توقيع مفوّض.</p><span class="stag stag-info">مدة الإعداد: أسبوعان</span></div></div>
+    <div class="flow-step"><div class="step-icon">٣</div><div class="step-body"><h4>استحداث كود الدولة لسوريا</h4><p>SAE (wmi@sae.org) تملك صلاحية تخصيص نطاقات جديدة. تنسّق SASMO مع SAE — قد يستغرق 4–8 أسابيع إضافية.</p><span class="stag stag-warn">نقطة حرجة في الجدول الزمني</span></div></div>
+    <div class="flow-step"><div class="step-icon">٤</div><div class="step-body"><h4>التحقق العالمي من التفرّد</h4><p>تتأكد SAE من عدم تعارض الكود مع أي رمز محجوز عالمياً.</p><span class="stag stag-info">مدة: أسبوع</span></div></div>
+    <div class="flow-step"><div class="step-icon">٥</div><div class="step-body"><h4>استلام الشهادة الرسمية</h4><p>SASMO تصدر شهادة WMI لـ SCAI. محمي قانونياً 30 عاماً من آخر استخدام.</p><span class="stag stag-ok">الهوية السيادية الصناعية لسوريا</span></div></div>
+  </div>
+  <div class="divider"></div>
+  <table class="dtable">
+    <thead><tr><th>الدولة</th><th>الجهة</th><th>الرسوم</th><th>المدة</th><th>ملاحظة</th></tr></thead>
+    <tbody>
+      <tr><td>🇺🇸 الولايات المتحدة</td><td class="mono">SAE/NHTSA</td><td style="color:var(--teal);font-weight:700">مجانية</td><td>2–4 أسابيع</td><td>ممولة من NHTSA</td></tr>
+      <tr><td>🇮🇪 أيرلندا</td><td class="mono">NSAI</td><td>€265</td><td>3–6 أسابيع</td><td>قناة أوروبية شائعة</td></tr>
+      <tr><td>🇮🇳 الهند</td><td class="mono">BIS</td><td>~$60</td><td>4–8 أسابيع</td><td>سريعة نسبياً</td></tr>
+      <tr style="background:var(--gold-pale)"><td>🇸🇾 <strong>سوريا (SCAI)</strong></td><td class="mono">SASMO→SAE</td><td>رمزية</td><td><strong>2–4 أشهر</strong></td><td style="color:var(--rust)"><strong>+4–8 أسابيع لكود الدولة</strong></td></tr>
+    </tbody>
+  </table>
+  <div class="chart-box"><div class="ct">توزيع رموز WMI الإقليمية — الشرق الأوسط</div><canvas id="cWmi" style="max-height:260px"></canvas></div>
+  <div class="card-grid">
+    <div class="card"><div class="card-acc" style="background:var(--rust)"></div><h3>🔒 قاعدة الـ 30 سنة</h3><p>لا يمكن إعادة تخصيص رمز WMI لجهة أخرى قبل مرور 30 سنة من آخر استخدام.</p></div>
+    <div class="card"><div class="card-acc" style="background:var(--gold)"></div><h3>9️⃣ قاعدة الحرف التاسع</h3><p>إذا كان الحرف الثالث في WMI هو "9" ← يعني أقل من 1000 مركبة/سنة. المواضع 12–14 تُستخدم للتعريف الإضافي.</p></div>
+    <div class="card"><div class="card-acc" style="background:var(--teal)"></div><h3>🏭 رموز متعددة</h3><p>يمكن لـ SCAI الحصول على أكثر من رمز WMI — رمز منفصل للحافلات وآخر للشاحنات.</p></div>
+  </div>
+</div>
+
+<!-- ═══ 3. VIN ═══ -->
+<div id="tab-vin" class="section">
+  <div class="sec-hdr"><div class="sec-num">٣</div><div class="sec-title"><h2>تصميم بنية VIN لـ SCAI</h2><p>17-Character Vehicle Identification Number Architecture</p></div></div>
+  <div class="vin-box">
+    <div class="vin-label">نموذج VIN — حافلة كهربائية SCAI 2026</div>
+    <div class="vin-chars" id="vinDisplay"></div>
+    <div class="vleg">
+      <div class="vleg-i"><div class="vleg-d" style="background:rgba(200,168,75,.6)"></div>WMI (1–3) هوية المصنّع</div>
+      <div class="vleg-i"><div class="vleg-d" style="background:rgba(46,139,135,.5)"></div>VDS (4–8) صفات المركبة</div>
+      <div class="vleg-i"><div class="vleg-d" style="background:rgba(139,58,42,.5)"></div>Check (9) رقم التحقق</div>
+      <div class="vleg-i"><div class="vleg-d" style="background:rgba(90,100,117,.4)"></div>VIS (10–17) تسلسل الإنتاج</div>
+    </div>
+  </div>
+  <h3 style="font-size:15px;font-weight:700;margin:20px 0 12px">تصميم قسم VDS (المواضع 4–8)</h3>
+  <table class="dtable">
+    <thead><tr><th>الموضع</th><th>القسم</th><th>الترميز المقترح</th><th>مثال</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">4</td><td>نوع المركبة</td><td>B=حافلة، T=شاحنة، V=فان</td><td class="mono">B</td></tr>
+      <tr><td class="mono">5</td><td>هيكل الجسم</td><td>C=حضري، I=بين مدن، S=مدرسي</td><td class="mono">C</td></tr>
+      <tr><td class="mono">6</td><td>الوزن GVWR</td><td>1–9 حسب الفئة</td><td class="mono">5 → 18–26 طن</td></tr>
+      <tr><td class="mono">7</td><td>سلسلة الطراز</td><td>A=سلسلة 100، B=سلسلة 200</td><td class="mono">A</td></tr>
+      <tr><td class="mono">8</td><td>نوع المحرك</td><td>D=ديزل، E=كهربائي، G=CNG</td><td class="mono">E</td></tr>
+    </tbody>
+  </table>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px">
+    <div>
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:11px">رموز سنة الطراز — الموضع 10</h3>
+      <table class="dtable"><thead><tr><th>السنة</th><th>الرمز</th><th>السنة</th><th>الرمز</th></tr></thead>
+      <tbody>
+        <tr><td>2024</td><td class="mono" style="color:var(--teal)">R</td><td>2028</td><td class="mono">W</td></tr>
+        <tr style="background:var(--gold-pale)"><td><strong>2025</strong></td><td class="mono" style="color:var(--rust);font-weight:700">S</td><td>2029</td><td class="mono">X</td></tr>
+        <tr style="background:var(--gold-pale)"><td><strong>2026</strong></td><td class="mono" style="color:var(--rust);font-weight:700">T</td><td>2030</td><td class="mono">Y</td></tr>
+        <tr><td>2027</td><td class="mono">V</td><td>2031</td><td class="mono">1</td></tr>
+      </tbody></table>
+    </div>
+    <div>
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:11px">أمثلة VIN كاملة</h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="card" style="padding:13px"><p style="font-size:11px;color:var(--muted);margin-bottom:5px">حافلة كهربائية حضرية 2026</p><div class="mono" style="font-size:13px;letter-spacing:2px">SCA<span style="color:var(--teal)">BCE5E</span><span style="color:var(--rust)">?</span><span style="color:var(--muted)">T1D00001</span></div></div>
+        <div class="card" style="padding:13px"><p style="font-size:11px;color:var(--muted);margin-bottom:5px">شاحنة ديزل بين مدن 2025</p><div class="mono" style="font-size:13px;letter-spacing:2px">SCA<span style="color:var(--teal)">TIS3D</span><span style="color:var(--rust)">?</span><span style="color:var(--muted)">S1D00001</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="calc-box">
+    <h3>🔢 حاسبة رقم التحقق (الموضع 9)</h3>
+    <p style="font-size:13px;color:var(--mid);margin-bottom:12px">أدخل 17 حرفاً (ضع X في الموضع 9 مؤقتاً)</p>
+    <div class="calc-row">
+      <input type="text" id="vinInput" maxlength="17" placeholder="أدخل 17 حرفاً من VIN" oninput="this.value=this.value.toUpperCase()">
+      <button onclick="calcCD()">احسب</button>
+    </div>
+    <div class="calc-res" id="calcRes"></div>
+  </div>
+  <h3 style="font-size:14px;font-weight:700;margin-bottom:11px">متطلبات اللوحة المادية</h3>
+  <table class="dtable">
+    <thead><tr><th>المتطلب</th><th>الأمريكي (49 CFR 565)</th><th>الأوروبي (EU 2021/535)</th><th>GCC/SASO</th></tr></thead>
+    <tbody>
+      <tr><td>ارتفاع الأحرف</td><td class="mono">4mm</td><td class="mono">7mm شاسيه / 4mm لوحة</td><td class="mono">4mm</td></tr>
+      <tr><td>المادة</td><td>ألومنيوم / صلب غير قابل للإزالة</td><td>ألومنيوم 5052-H32 أو صلب 304/316</td><td>مطابق UNECE</td></tr>
+      <tr><td>عمق النقش</td><td class="mono">0.3mm</td><td class="mono">0.3mm</td><td class="mono">0.3mm</td></tr>
+      <tr><td>الباركود</td><td>Code 39 (AIAG B-2)</td><td>Code 39 أو Data Matrix</td><td>Code 39</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══ 4. HOMOLOGATION ═══ -->
+<div id="tab-homo" class="section">
+  <div class="sec-hdr"><div class="sec-num">٤</div><div class="sec-title"><h2>المطابقة الدولية وشهادات السلامة</h2><p>International Type Approval &amp; Safety Homologation</p></div></div>
+  <div class="card-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="card" style="border-top:4px solid var(--gold)"><div class="pb pb-gold">السوق الأول</div><h3>سوريا الداخلي</h3><p>التسجيل عبر المديرية العامة للمرور. تبنّي معايير GSO مؤقتاً.</p><p style="margin-top:6px;font-size:12px;color:var(--gold)">التكلفة: منخفضة | 1–3 أشهر</p></div>
+    <div class="card" style="border-top:4px solid var(--teal)"><div class="pb pb-teal">السوق الثاني</div><h3>دول الخليج العربي</h3><p>Mutabiq + SABER. 70+ لائحة تقنية. معايير Euro V.</p><p style="margin-top:6px;font-size:12px;color:var(--teal2)">التكلفة: $50K–$200K | 3–6 أشهر</p></div>
+    <div class="card" style="border-top:4px solid var(--rust)"><div class="pb pb-rust">السوق الثالث</div><h3>أوروبا (WVTA)</h3><p>اعتماد كامل عبر KBA أو RDW. 50–70 موضوعاً تنظيمياً.</p><p style="margin-top:6px;font-size:12px;color:var(--rust)">التكلفة: €500K–€2M | 12–18 شهراً</p></div>
+  </div>
+  <h3 style="font-size:15px;font-weight:700;margin:20px 0 12px">أهم لوائح UNECE للحافلات والمركبات التجارية</h3>
+  <table class="dtable">
+    <thead><tr><th>اللائحة</th><th>الموضوع</th><th>الفئة</th><th>الأولوية</th><th>التكلفة</th><th>المدة</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">R66</td><td>متانة الهيكل الفوقي (انقلاب)</td><td>M2, M3</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>€50K–€150K</td><td>8–12 أسبوع</td></tr>
+      <tr><td class="mono">R107</td><td>إنشاء الحافلات العام</td><td>M2, M3</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>€30K–€80K</td><td>6–10 أسابيع</td></tr>
+      <tr><td class="mono">R118</td><td>سلوك الاحتراق للمواد</td><td>M2, M3</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>€20K–€50K</td><td>4–8 أسابيع</td></tr>
+      <tr><td class="mono">R49</td><td>انبعاثات الديزل (Euro VI)</td><td>N2, N3, M2, M3</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>€100K–€500K</td><td>12–24 أسبوع</td></tr>
+      <tr><td class="mono">R13</td><td>الفرملة الثقيلة (ABS/EBS)</td><td>N2, N3, M2, M3</td><td><span class="risk-badge rb-high">عالية</span></td><td>€25K–€60K</td><td>4–8 أسابيع</td></tr>
+      <tr><td class="mono">R155</td><td>الأمن السيبراني (CSMS)</td><td>الكل — EU إلزامي 2024</td><td><span class="risk-badge rb-high">عالية</span></td><td>€50K–€200K</td><td>8–16 أسبوع</td></tr>
+      <tr><td class="mono">R156</td><td>إدارة تحديثات البرمجيات</td><td>الكل</td><td><span class="risk-badge rb-high">عالية</span></td><td>€30K–€100K</td><td>6–12 أسبوع</td></tr>
+      <tr><td class="mono">R48</td><td>تركيب الإضاءة</td><td>الكل</td><td><span class="risk-badge rb-medium">متوسطة</span></td><td>€10K–€30K</td><td>2–4 أسابيع</td></tr>
+      <tr><td class="mono">R79</td><td>معدات التوجيه</td><td>M, N</td><td><span class="risk-badge rb-medium">متوسطة</span></td><td>€15K–€40K</td><td>3–6 أسابيع</td></tr>
+      <tr><td class="mono">R58/R73</td><td>الحماية الجانبية والخلفية</td><td>N2, N3</td><td><span class="risk-badge rb-medium">متوسطة</span></td><td>€8K–€20K</td><td>2–4 أسابيع</td></tr>
+    </tbody>
+  </table>
+  <div class="chart-box"><div class="ct">توزيع تكاليف اختبارات اللوائح التقنية (تقديري)</div><canvas id="cReg" style="max-height:280px"></canvas></div>
+  <div class="callout co-teal"><div class="co-icon">🏢</div><div><strong>جهات Technical Service الموصى بها:</strong> IDIADA (إسبانيا — الأفضل لـ R66) | TÜV SÜD (ألمانيا) | TÜV Rheinland | UTAC (فرنسا).</div></div>
+</div>
+
+<!-- ═══ 5. PHASES ═══ -->
+<div id="tab-phases" class="section">
+  <div class="sec-hdr"><div class="sec-num">٥</div><div class="sec-title"><h2>مراحل التصنيع وتطور الشهادات</h2><p>SKD → CKD → Local Manufacturing</p></div></div>
+  <div class="chart-box"><div class="ct">تطور المكوّن المحلي ومسؤولية WMI عبر المراحل</div><canvas id="cLocal" style="max-height:280px"></canvas></div>
+  <div class="flow-steps" style="margin-top:20px">
+    <div class="flow-step"><div class="step-icon" style="background:var(--gold);color:var(--ink)">١</div><div class="step-body"><div class="pb pb-gold">SKD — التجميع الجزئي | 5–15%</div><h4>شريك OEM يحتفظ بمسؤولية الاعتماد الكامل</h4><p>المركبة تحمل WMI الخاص بـ Chery أو Yutong. SCAI تحتاج فقط: رخصة صناعية + ISO 9001. الموضع 11 يُعرّف مصنع SCAI.</p><span class="stag stag-info">لا شهادة مستقلة مطلوبة</span></div></div>
+    <div class="flow-step"><div class="step-icon" style="background:var(--teal)">٢</div><div class="step-body"><div class="pb pb-teal">CKD — التجميع الكامل | 15–40%</div><h4>SCAI تبدأ مشاركة المسؤولية التصديقية</h4><p>IATF 16949 يصبح ضرورة. ابدأ تقديم طلب WMI الخاص بـ SCAI الآن.</p><span class="stag stag-warn">بدء تطبيق WMI المستقل</span></div></div>
+    <div class="flow-step"><div class="step-icon" style="background:var(--rust)">٣</div><div class="step-body"><div class="pb pb-rust">تصنيع محلي كامل | 60%+</div><h4>SCAI تتحمل مسؤولية الاعتماد الكاملة</h4><p>يجب استخدام WMI الخاص بـ SCAI حصراً. بلد المنشأ = سوريا. تحذير: غرّمت إيطاليا شركة DR Automobiles €6M لادعائها صنعاً إيطالياً لمركبات صينية.</p><span class="stag stag-ok">الهدف النهائي — الهوية الوطنية</span></div></div>
+  </div>
+  <div class="callout co-gold"><div class="co-icon">💡</div><div><strong>لا يوجد WMI مؤقت:</strong> استخدام WMI شريك OEM أثناء SKD/CKD صحيح دولياً. التحول لـ WMI SCAI يأتي عند تجاوز 50% محتوى محلي.</div></div>
+</div>
+
+<!-- ═══ 6. BUDGET ═══ -->
+<div id="tab-budget" class="section">
+  <div class="sec-hdr"><div class="sec-num">٦</div><div class="sec-title"><h2>الميزانية والجدول الزمني</h2><p>Budget Allocation &amp; Project Timeline</p></div></div>
+  <div class="bud-grid">
+    <div><div class="bt">إجمالي الميزانية</div><div class="bv">€1–3M</div></div>
+    <div><div class="bt">المدة الزمنية</div><div class="bv">24 شهراً</div></div>
+    <div><div class="bt">رسوم WMI</div><div class="bv">~$500</div></div>
+    <div><div class="bt">الأسواق المستهدفة</div><div class="bv">3</div></div>
+  </div>
+  <table class="dtable">
+    <thead><tr><th>البند</th><th>الحد الأدنى</th><th>الحد الأقصى</th><th>الأولوية</th></tr></thead>
+    <tbody>
+      <tr><td>رسوم تسجيل WMI</td><td>$0</td><td>$1,000</td><td><span class="stag stag-warn">عاجل</span></td></tr>
+      <tr><td>تطوير نظام VIN (ERP/MES)</td><td>€20,000</td><td>€100,000</td><td><span class="stag stag-info">شهر 1</span></td></tr>
+      <tr><td>اختبارات R66</td><td>€50,000</td><td>€150,000</td><td><span class="stag stag-warn">حرجة</span></td></tr>
+      <tr><td>اختبارات R107</td><td>€30,000</td><td>€80,000</td><td><span class="stag stag-warn">حرجة</span></td></tr>
+      <tr><td>اختبارات R49 (الانبعاثات)</td><td>€100,000</td><td>€500,000</td><td><span class="stag stag-warn">حرجة</span></td></tr>
+      <tr><td>حزمة UNECE المتبقية</td><td>€100,000</td><td>€300,000</td><td><span class="stag stag-info">متوسطة</span></td></tr>
+      <tr><td>الأمن السيبراني R155/R156</td><td>€80,000</td><td>€300,000</td><td><span class="stag stag-info">EU إلزامي</span></td></tr>
+      <tr><td>تسجيل GSO Mutabiq + SABER</td><td>€25,000</td><td>€110,000</td><td><span class="stag stag-ok">أولى</span></td></tr>
+      <tr><td>WVTA الأوروبي</td><td>€200,000</td><td>€800,000</td><td><span class="stag stag-info">مرحلة 3</span></td></tr>
+      <tr><td>IATF 16949 / ISO 9001</td><td>€30,000</td><td>€80,000</td><td><span class="stag stag-warn">أساسي</span></td></tr>
+      <tr><td>لوحات VIN + معدات النقش</td><td>€5,000</td><td>€25,000</td><td><span class="stag stag-info">عملياتي</span></td></tr>
+      <tr style="background:var(--gold-pale);font-weight:700"><td>الإجمالي</td><td>€640,000</td><td>€2,445,000</td><td></td></tr>
+    </tbody>
+  </table>
+  <div class="gantt-wrap">
+    <div class="gantt">
+      <div class="g-title">الجدول الزمني — 24 شهراً</div>
+      <div class="g-hdr"><div class="g-mo">ش1</div><div class="g-mo">ش2</div><div class="g-mo">ش3</div><div class="g-mo">ش4</div><div class="g-mo">ش5</div><div class="g-mo">ش6</div><div class="g-mo">ش7</div><div class="g-mo">ش8</div><div class="g-mo">ش9</div><div class="g-mo">ش10</div><div class="g-mo">ش11</div><div class="g-mo">ش12</div><div class="g-mo">ش13</div><div class="g-mo">ش14</div><div class="g-mo">ش15</div><div class="g-mo">ش16</div><div class="g-mo">ش17</div><div class="g-mo">ش18</div><div class="g-mo">ش19</div><div class="g-mo">ش20</div><div class="g-mo">ش21</div><div class="g-mo">ش22</div><div class="g-mo">ش23</div><div class="g-mo">ش24</div></div>
+      <div class="g-row"><div class="g-lbl">تسجيل WMI</div><div class="g-trk"><div class="g-bar" style="right:0;width:16.6%;background:#c8a84b;color:#0f1117">WMI</div></div></div>
+      <div class="g-row"><div class="g-lbl">تصميم بنية VIN</div><div class="g-trk"><div class="g-bar" style="right:0;width:12.5%;background:#1a5c5a">VIN</div></div></div>
+      <div class="g-row"><div class="g-lbl">ISO 9001 / IATF 16949</div><div class="g-trk"><div class="g-bar" style="right:4.2%;width:20.8%;background:#5a3d7a">ISO</div></div></div>
+      <div class="g-row"><div class="g-lbl">تكامل ERP/MES</div><div class="g-trk"><div class="g-bar" style="right:8.3%;width:16.6%;background:#2e8b87">ERP</div></div></div>
+      <div class="g-row"><div class="g-lbl">اختبارات R66+R107+R118</div><div class="g-trk"><div class="g-bar" style="right:16.6%;width:25%;background:#8b3a2a">R66/107</div></div></div>
+      <div class="g-row"><div class="g-lbl">اختبارات R49</div><div class="g-trk"><div class="g-bar" style="right:16.6%;width:33.3%;background:#7a3a8b">R49</div></div></div>
+      <div class="g-row"><div class="g-lbl">تسجيل GSO Mutabiq</div><div class="g-trk"><div class="g-bar" style="right:33.3%;width:16.6%;background:#1a5c5a">GSO</div></div></div>
+      <div class="g-row"><div class="g-lbl">SABER السعودي</div><div class="g-trk"><div class="g-bar" style="right:41.6%;width:12.5%;background:#c8a84b;color:#0f1117">SABER</div></div></div>
+      <div class="g-row"><div class="g-lbl">R155/R156 السيبراني</div><div class="g-trk"><div class="g-bar" style="right:37.5%;width:25%;background:#2c3e50">CSMS</div></div></div>
+      <div class="g-row"><div class="g-lbl">WVTA الأوروبي</div><div class="g-trk"><div class="g-bar" style="right:54.2%;width:41.6%;background:#8b3a2a">EU WVTA</div></div></div>
+      <div class="g-row"><div class="g-lbl">إنتاج SKD الأول</div><div class="g-trk"><div class="g-bar" style="right:16.6%;width:8.3%;background:#c8a84b;color:#0f1117">▶ بدء</div></div></div>
+      <div class="g-row"><div class="g-lbl">إنتاج CKD</div><div class="g-trk"><div class="g-bar" style="right:37.5%;width:8.3%;background:#1a5c5a">▶ CKD</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 7. TEMPLATES ═══ -->
+<div id="tab-templates" class="section">
+  <div class="sec-hdr"><div class="sec-num">٧</div><div class="sec-title"><h2>النماذج والوثائق الرسمية</h2><p>Official Application Templates</p></div></div>
+  <h3 style="font-size:15px;font-weight:700;margin-bottom:11px">نموذج ١: طلب تسجيل رمز WMI</h3>
+  <div class="tmpl">
+    <div class="tmpl-wm">TEMPLATE</div>
+    <h3>طلب تسجيل رمز هوية المصنّع العالمي (WMI)</h3>
+    <div class="tmpl-sub">مقدم إلى: SASMO / SAE International — wmi@sae.org</div>
+    <div class="fg">
+      <div class="fgroup"><label>اسم الشركة / Company Legal Name</label><div class="ffield">الشركة السورية للصناعات الآلية (SCAI)</div></div>
+      <div class="fgroup"><label>العنوان القانوني</label><div class="ffield fi">دمشق / حمص / ريف دمشق — يُحدد</div></div>
+      <div class="fgroup"><label>نوع النشاط</label><div class="ffield">Manufacturer — وليس Assembler فقط</div></div>
+      <div class="fgroup"><label>فئات المركبات</label><div class="ffield">M2, M3 (حافلات) | N2, N3 (شاحنات)</div></div>
+      <div class="fgroup"><label>الطاقة الإنتاجية السنوية</label><div class="ffield fi">مثال: 1,000 حافلة / 500 شاحنة</div></div>
+      <div class="fgroup"><label>خطة الإنتاج</label><div class="ffield">SKD (2026) → CKD (2027) → محلي (2028+)</div></div>
+    </div>
+  </div>
+  <h3 style="font-size:15px;font-weight:700;margin-bottom:11px">نموذج ٢: وثيقة فكّ تشفير VIN</h3>
+  <div class="tmpl">
+    <div class="tmpl-wm">OFFICIAL</div>
+    <h3>VIN Deciphering Document</h3>
+    <div class="tmpl-sub">يُقدم إلى NHTSA قبل 60 يوماً من أول بيع في السوق الأمريكي</div>
+    <table class="dtable" style="margin-bottom:0">
+      <thead><tr><th>الموضع</th><th>القسم</th><th>القيمة</th><th>المعنى</th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="color:var(--gold);font-weight:700">1–3</td><td>WMI</td><td class="mono">SCA</td><td>سوريا — SCAI (منتظر)</td></tr>
+        <tr><td class="mono" style="color:var(--teal2)">4–8</td><td>VDS</td><td class="mono">BCE5E</td><td>حافلة حضرية كهربائية GVWR-5</td></tr>
+        <tr><td class="mono" style="color:var(--rust)">9</td><td>Check</td><td class="mono">3</td><td>يُحسب خوارزمياً</td></tr>
+        <tr><td class="mono" style="color:var(--muted)">10</td><td>VIS</td><td class="mono">T</td><td>سنة الطراز: T=2026</td></tr>
+        <tr><td class="mono" style="color:var(--muted)">11</td><td>VIS</td><td class="mono">1</td><td>رمز المصنع: 1=دمشق</td></tr>
+        <tr><td class="mono" style="color:var(--muted)">12–17</td><td>VIS</td><td class="mono">D00001</td><td>رقم تسلسلي</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:13px;padding:11px;background:var(--ink);border-radius:4px;font-size:13px;color:var(--gold);font-family:'IBM Plex Mono',monospace;text-align:center;letter-spacing:3px">VIN: SCABCE5E3T1D00001</div>
+  </div>
+  <div class="callout co-gold"><div class="co-icon">🏆</div><div><strong>التوصية الاستراتيجية:</strong> لا تتعامل مع WMI كإجراء إداري — بل كـ <strong>أداة سيادة صناعية</strong> وأصل تفاوضي مع شركاء OEM وأساس لصناعة سيارات في سوريا.</div></div>
+</div>
+
+<!-- ═══ 8. ABBREVIATIONS ═══ -->
+<div id="tab-abbrev" class="section">
+  <div class="sec-hdr"><div class="sec-num">٨</div><div class="sec-title"><h2>جدول المختصرات والمصطلحات</h2><p>Abbreviations &amp; Technical Glossary</p></div></div>
+  <div class="hbox">يشمل هذا الجدول جميع المختصرات التقنية الواردة في الدراسة، مرتبةً أبجدياً بالإنجليزية مع الشرح بالعربية.</div>
+  <div style="margin-bottom:16px;display:flex;gap:10px;align-items:center">
+    <input id="abSearch" type="text" placeholder="ابحث عن مختصر أو مصطلح..." oninput="abFilter()"
+      style="flex:1;padding:9px 13px;border:1px solid var(--border);border-radius:6px;font-family:'Noto Kufi Arabic',sans-serif;font-size:14px;background:var(--white);direction:rtl">
+    <span id="abCount" style="font-size:13px;color:var(--muted);white-space:nowrap;min-width:65px;text-align:center"></span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px">
+    <button class="cat-btn active" onclick="abCat('all',this)">الكل</button>
+    <button class="cat-btn" onclick="abCat('standards',this)">معايير وهيئات</button>
+    <button class="cat-btn" onclick="abCat('vin',this)">VIN / WMI</button>
+    <button class="cat-btn" onclick="abCat('cert',this)">شهادات</button>
+    <button class="cat-btn" onclick="abCat('phases',this)">مراحل التصنيع</button>
+    <button class="cat-btn" onclick="abCat('unece',this)">لوائح UNECE</button>
+    <button class="cat-btn" onclick="abCat('tech',this)">تقنية وأنظمة</button>
+    <button class="cat-btn" onclick="abCat('market',this)">أسواق ومناطق</button>
+  </div>
+  <table class="dtable" id="abTable">
+    <thead><tr><th style="width:95px">المختصر</th><th>الاسم الكامل بالإنجليزية</th><th>الشرح بالعربية</th><th style="width:125px">الفئة</th></tr></thead>
+    <tbody id="abBody"></tbody>
+  </table>
+  <div class="callout co-teal"><div class="co-icon">📌</div><div>جميع المختصرات مرتبة أبجدياً. استخدم البحث أو أزرار الفئة للتصفية السريعة.</div></div>
+</div>
+
+<!-- ═══ 9. RISK MANAGEMENT ═══ -->
+<div id="tab-risk" class="section">
+  <div class="sec-hdr"><div class="sec-num">٩</div><div class="sec-title"><h2>إدارة المخاطر — خارطة الطريق الكاملة</h2><p>Risk Management Framework — Full Journey Tasks</p></div></div>
+  <div class="callout co-gold"><div class="co-icon">🎯</div><div>تُغطي هذه الوثيقة <strong>35 مخاطرة</strong> موزعة على 6 فئات رئيسية. كل مخاطرة مُصنَّفة باحتمالية وتأثير وخطة معالجة واضحة.</div></div>
+  <div class="card-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="card"><div class="card-acc" style="background:var(--rust)"></div><p style="font-size:11px;color:var(--muted);margin-bottom:4px">مخاطر حرجة</p><div class="stat" style="font-size:26px;color:var(--rust)">8</div><p style="font-size:12px;color:var(--mid)">تستوجب إجراء فورياً</p></div>
+    <div class="card"><div class="card-acc" style="background:var(--orange)"></div><p style="font-size:11px;color:var(--muted);margin-bottom:4px">مخاطر عالية</p><div class="stat" style="font-size:26px;color:var(--orange)">13</div><p style="font-size:12px;color:var(--mid)">تحتاج متابعة مستمرة</p></div>
+    <div class="card"><div class="card-acc" style="background:var(--gold)"></div><p style="font-size:11px;color:var(--muted);margin-bottom:4px">مخاطر متوسطة</p><div class="stat" style="font-size:26px;color:var(--gold)">9</div><p style="font-size:12px;color:var(--mid)">تُراقَب دورياً</p></div>
+    <div class="card"><div class="card-acc" style="background:var(--teal)"></div><p style="font-size:11px;color:var(--muted);margin-bottom:4px">مخاطر منخفضة</p><div class="stat" style="font-size:26px;color:var(--teal)">5</div><p style="font-size:12px;color:var(--mid)">تُسجَّل وتُتابَع</p></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px">
+    <div class="chart-box"><div class="ct">مصفوفة المخاطر — الاحتمالية × التأثير</div><canvas id="cRiskFull" style="max-height:300px"></canvas></div>
+    <div class="chart-box"><div class="ct">توزيع المخاطر حسب الفئة</div><canvas id="cRiskCat" style="max-height:300px"></canvas></div>
+  </div>
+
+  <div class="divider"></div>
+  <!-- CAT 1 -->
+  <div class="cat-head"><span class="cat-label" style="background:var(--rust)">١</span> مخاطر تنظيمية وتصديقية — Regulatory &amp; Certification</div>
+  <table class="dtable">
+    <thead><tr><th style="width:50px">كود</th><th>المخاطرة</th><th style="width:80px">احتمالية</th><th style="width:70px">تأثير</th><th style="width:80px">المستوى</th><th>مهمة المعالجة</th></tr></thead>
+    <tbody>
+      <tr><td class="mono" style="font-size:11px">R-01</td><td><strong>عدم تخصيص كود WMI لسوريا في ISO 3780</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>التواصل المبكر مع SASMO وSAE. إعداد مسار بديل عبر NSAI أيرلندا.</td></tr>
+      <tr><td class="mono" style="font-size:11px">R-02</td><td><strong>تأخر الحصول على WMI أكثر من 6 أشهر</strong></td><td style="color:var(--rust);font-weight:700">عالية</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>استخدام WMI شريك OEM مؤقتاً. وضع بروتوكول تصعيد بعد 60 يوماً من التقديم.</td></tr>
+      <tr><td class="mono" style="font-size:11px">R-03</td><td><strong>فشل اختبار R66 (انقلاب الحافلة)</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>تنفيذ تحليل FEA قبل الاختبار الفعلي بـ 3 أشهر. اختيار IDIADA كشريك تقني.</td></tr>
+      <tr><td class="mono" style="font-size:11px">R-04</td><td><strong>عدم استيفاء لوائح الانبعاثات R49 (Euro V/VI)</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>الحصول على محركات معتمدة مسبقاً. تأمين شهادة المحرك قبل التجميع.</td></tr>
+      <tr><td class="mono" style="font-size:11px">R-05</td><td><strong>تعقيد متطلبات R155/R156 السيبرانية</strong></td><td style="color:var(--rust);font-weight:700">عالية</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-high">عالية</span></td><td>تعيين شركة متخصصة في CSMS مبكراً. دمج TARA في مرحلة تصميم المنتج.</td></tr>
+      <tr><td class="mono" style="font-size:11px">R-06</td><td><strong>رفض بيانات الاختبار من قِبل الجهة المانحة</strong></td><td style="color:var(--teal);font-weight:700">منخفضة</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-high">عالية</span></td><td>التأكد من اعتماد المختبر رسمياً من الجهة المانحة قبل توقيع أي عقد.</td></tr>
+      <tr><td class="mono" style="font-size:11px">R-07</td><td><strong>تغيير اللوائح التقنية أثناء مسار التصديق</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-high">عالية</span></td><td>الاشتراك في نشرات UNECE وGSO. إدراج بنود تعديل في عقود المختبرات.</td></tr>
+      <tr><td class="mono" style="font-size:11px">R-08</td><td><strong>رفض تسجيل GSO Mutabiq بسبب ملف الشركة</strong></td><td style="color:var(--teal);font-weight:700">منخفضة</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-medium">متوسطة</span></td><td>الاستعانة بمستشار خليجي محلي لمراجعة ملف الشركة قبل التقديم.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="divider"></div>
+  <!-- CAT 2 -->
+  <div class="cat-head"><span class="cat-label" style="background:var(--slate)">٢</span> مخاطر جيوسياسية وعقوبات — Geopolitical &amp; Sanctions</div>
+  <table class="dtable">
+    <thead><tr><th style="width:50px">كود</th><th>المخاطرة</th><th style="width:80px">احتمالية</th><th style="width:70px">تأثير</th><th style="width:80px">المستوى</th><th>مهمة المعالجة</th></tr></thead>
+    <tbody>
+      <tr><td class="mono" style="font-size:11px">G-01</td><td><strong>إعادة فرض عقوبات دولية على سوريا</strong></td><td style="color:var(--teal);font-weight:700">منخفضة</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>إعداد خطة طوارئ مع كيان قانوني بديل (الإمارات / تركيا). رصد OFAC أسبوعياً.</td></tr>
+      <tr><td class="mono" style="font-size:11px">G-02</td><td><strong>تعقيد الخدمات المصرفية الدولية (Derisking)</strong></td><td style="color:var(--rust);font-weight:700">عالية</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>فتح حسابات في بنوك إقليمية. استخدام خطابات الاعتماد (LC) مع شركاء OEM.</td></tr>
+      <tr><td class="mono" style="font-size:11px">G-03</td><td><strong>تأخر شريك OEM في التوريد بسبب تحديات الشحن</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-high">عالية</span></td><td>بناء مخزون احتياطي لا يقل عن 3 أشهر. بند جزاءات تأخير في عقد OEM.</td></tr>
+      <tr><td class="mono" style="font-size:11px">G-04</td><td><strong>عدم استقرار بيئة الأعمال المحلية</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-high">عالية</span></td><td>توثيق كل الاتفاقيات رسمياً. وضع خطة استمرارية الأعمال (BCP) محدثة كل 6 أشهر.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="divider"></div>
+  <!-- CAT 3 -->
+  <div class="cat-head"><span class="cat-label" style="background:var(--teal)">٣</span> مخاطر تقنية وهندسية — Technical &amp; Engineering</div>
+  <table class="dtable">
+    <thead><tr><th style="width:50px">كود</th><th>المخاطرة</th><th style="width:80px">احتمالية</th><th style="width:70px">تأثير</th><th style="width:80px">المستوى</th><th>مهمة المعالجة</th></tr></thead>
+    <tbody>
+      <tr><td class="mono" style="font-size:11px">T-01</td><td><strong>أخطاء في تصميم بنية VIN الداخلية</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>تنفيذ خوارزمية Check Digit في ERP. اختبار 1000 VIN افتراضي قبل الإطلاق.</td></tr>
+      <tr><td class="mono" style="font-size:11px">T-02</td><td><strong>عدم تكامل VIN مع نظام ERP/MES</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-high">عالية</span></td><td>تخصيص بيئة اختبار (sandbox) للتكامل قبل 3 أشهر من الإنتاج.</td></tr>
+      <tr><td class="mono" style="font-size:11px">T-03</td><td><strong>اكتشاف ثغرات في الأمن السيبراني للمركبة</strong></td><td style="color:var(--teal);font-weight:700">منخفضة</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-high">عالية</span></td><td>تطبيق منهجية TARA قبل التصميم النهائي. اختبار اختراق سنوي.</td></tr>
+      <tr><td class="mono" style="font-size:11px">T-04</td><td><strong>تكرار VIN أو تصادم في قاعدة البيانات</strong></td><td style="color:var(--teal);font-weight:700">منخفضة</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-high">عالية</span></td><td>تفعيل قاعدة بيانات VIN بقيد تفرد (UNIQUE constraint). تدقيق آلي قبل طباعة اللوحة.</td></tr>
+      <tr><td class="mono" style="font-size:11px">T-05</td><td><strong>فشل اختبار مواد الحريق الداخلية (R118)</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-high">عالية</span></td><td>اختبار مواد مبكر (Pre-compliance). اشتراط شهادة R118 على كل مورد مواد داخلية.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="divider"></div>
+  <!-- CAT 4 -->
+  <div class="cat-head"><span class="cat-label" style="background:var(--purple)">٤</span> مخاطر مالية وتمويلية — Financial &amp; Funding</div>
+  <table class="dtable">
+    <thead><tr><th style="width:50px">كود</th><th>المخاطرة</th><th style="width:80px">احتمالية</th><th style="width:70px">تأثير</th><th style="width:80px">المستوى</th><th>مهمة المعالجة</th></tr></thead>
+    <tbody>
+      <tr><td class="mono" style="font-size:11px">F-01</td><td><strong>تجاوز تكاليف اختبارات UNECE المقدّرة</strong></td><td style="color:var(--rust);font-weight:700">عالية</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>تحديد احتياطي مالي 20% فوق التقدير. التفاوض على حزمة متعددة اللوائح مع TÜV/IDIADA.</td></tr>
+      <tr><td class="mono" style="font-size:11px">F-02</td><td><strong>تأخر تمويل مرحلة CKD</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>إعداد خطة مالية متعددة المصادر. الاتفاق على خط ائتمان قبل 6 أشهر من CKD.</td></tr>
+      <tr><td class="mono" style="font-size:11px">F-03</td><td><strong>تذبذب سعر الصرف على تكاليف استيراد مجموعات SKD</strong></td><td style="color:var(--rust);font-weight:700">عالية</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-high">عالية</span></td><td>تسعير عقود OEM بالدولار/اليورو مع بند تثبيت السعر. استخدام Forward Contracts.</td></tr>
+      <tr><td class="mono" style="font-size:11px">F-04</td><td><strong>تكاليف إعادة الاختبار عند فشل جولة أولى</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-high">عالية</span></td><td>إدراج تكلفة إعادة اختبار واحدة لكل لائحة حرجة في الميزانية الأساسية.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="divider"></div>
+  <!-- CAT 5 -->
+  <div class="cat-head"><span class="cat-label" style="background:var(--teal2)">٥</span> مخاطر تشغيلية وموارد بشرية — Operational &amp; HR</div>
+  <table class="dtable">
+    <thead><tr><th style="width:50px">كود</th><th>المخاطرة</th><th style="width:80px">احتمالية</th><th style="width:70px">تأثير</th><th style="width:80px">المستوى</th><th>مهمة المعالجة</th></tr></thead>
+    <tbody>
+      <tr><td class="mono" style="font-size:11px">O-01</td><td><strong>شح الكوادر المتخصصة في مطابقة السيارات</strong></td><td style="color:var(--rust);font-weight:700">عالية</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>برنامج تدريب مبكر مع IDIADA/TÜV. التعاقد مع خبير أجنبي 12 شهراً. إطلاق برنامج ابتعاث.</td></tr>
+      <tr><td class="mono" style="font-size:11px">O-02</td><td><strong>تأخر شريك OEM في نقل التكنولوجيا</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-critical">حرجة</span></td><td>إدراج جدول ملزم لنقل التكنولوجيا في عقد OEM مع غرامات تأخير محددة.</td></tr>
+      <tr><td class="mono" style="font-size:11px">O-03</td><td><strong>ضعف ثقافة الجودة في المصنع</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-high">عالية</span></td><td>إطلاق برنامج ISO 9001 من اليوم الأول. تعيين مدير جودة متفرغ بخبرة +10 سنوات.</td></tr>
+      <tr><td class="mono" style="font-size:11px">O-04</td><td><strong>تناقض في وثائق التصديق بسبب الترجمة</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-high">عالية</span></td><td>توظيف مترجم تقني متخصص في وثائق السيارات. مراجعة قانونية مزدوجة لكل وثيقة.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="divider"></div>
+  <!-- CAT 6 -->
+  <div class="cat-head"><span class="cat-label" style="background:var(--gold);color:var(--ink)">٦</span> مخاطر تجارية وسوقية — Market &amp; Commercial</div>
+  <table class="dtable">
+    <thead><tr><th style="width:50px">كود</th><th>المخاطرة</th><th style="width:80px">احتمالية</th><th style="width:70px">تأثير</th><th style="width:80px">المستوى</th><th>مهمة المعالجة</th></tr></thead>
+    <tbody>
+      <tr><td class="mono" style="font-size:11px">M-01</td><td><strong>انخفاض الطلب المحلي على الحافلات</strong></td><td style="color:var(--orange);font-weight:700">متوسطة</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-high">عالية</span></td><td>تأمين عقود مسبقة من وزارة النقل. التوجه المبكر لأسواق الخليج كسوق موازٍ.</td></tr>
+      <tr><td class="mono" style="font-size:11px">M-02</td><td><strong>منافسة من مركبات مستعملة مستوردة رخيصة</strong></td><td style="color:var(--rust);font-weight:700">عالية</td><td style="color:var(--orange);font-weight:700">عالٍ</td><td><span class="risk-badge rb-high">عالية</span></td><td>التموضع في قطاع الجودة (ضمان 5 سنوات). التركيز على عقود الخدمة بعد البيع.</td></tr>
+      <tr><td class="mono" style="font-size:11px">M-03</td><td><strong>انتهاك WMI من قِبل جهة ثالثة (VIN Cloning)</strong></td><td style="color:var(--teal);font-weight:700">منخفضة</td><td style="color:var(--rust);font-weight:700">حرج</td><td><span class="risk-badge rb-high">عالية</span></td><td>التسجيل في قاعدة بيانات INTERPOL SMV فور الحصول على WMI. رصد دوري للأسواق.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="divider"></div>
+  <!-- Master Task Checklist -->
+  <h3 style="font-size:16px;font-weight:700;margin-bottom:14px">✅ قائمة المهام الرئيسية لإدارة المخاطر — حسب الأولوية الزمنية</h3>
+  <table class="dtable">
+    <thead><tr><th style="width:110px">الإطار الزمني</th><th>المهمة</th><th>المخاطرة المعالجة</th><th>الحالة</th></tr></thead>
+    <tbody>
+      <tr><td style="font-weight:700;color:var(--rust)">فوري — أسبوع 1–2</td><td>التواصل مع SASMO لتحديد وضع كود الدولة السوري</td><td>R-01, R-02</td><td><span class="stag stag-warn">معلق</span></td></tr>
+      <tr><td style="font-weight:700;color:var(--rust)">فوري</td><td>الحصول على رأي OFAC القانوني المكتوب بشأن رفع العقوبات</td><td>G-01, G-02</td><td><span class="stag stag-warn">معلق</span></td></tr>
+      <tr><td style="font-weight:700;color:var(--orange)">الشهر 1</td><td>تعيين مدير جودة متفرغ (ISO 9001) + مستشار مطابقة دولي</td><td>O-01, O-03</td><td><span class="stag stag-warn">معلق</span></td></tr>
+      <tr><td style="font-weight:700;color:var(--orange)">الشهر 1</td><td>وضع احتياطي مالي 20% فوق ميزانية الاختبارات</td><td>F-01, F-04</td><td><span class="stag stag-warn">معلق</span></td></tr>
+      <tr><td style="font-weight:700;color:var(--orange)">الشهر 1–2</td><td>إدراج جدول نقل التكنولوجيا الملزم في عقد OEM مع غرامات</td><td>O-02, G-03</td><td><span class="stag stag-warn">معلق</span></td></tr>
+      <tr><td style="font-weight:700;color:var(--gold)">الشهر 2–3</td><td>تنفيذ تحليل FEA للهيكل الفوقي قبل اختبار R66</td><td>R-03</td><td><span class="stag stag-info">مجدولة</span></td></tr>
+      <tr><td style="font-weight:700;color:var(--gold)">الشهر 2–3</td><td>بناء نظام VIN مع خوارزمية Check Digit واختبار 1000 رقم</td><td>T-01, T-04</td><td><span class="stag stag-info">مجدولة</span></td></tr>
+      <tr><td style="font-weight:700;color:var(--gold)">الشهر 3–6</td><td>الحصول على شهادة محرك Euro V/VI من OEM قبل التجميع</td><td>R-04</td><td><span class="stag stag-info">مجدولة</span></td></tr>
+      <tr><td style="font-weight:700;color:var(--teal)">الشهر 4–6</td><td>تعيين شركة CSMS متخصصة وتطبيق منهجية TARA</td><td>R-05, T-03</td><td><span class="stag stag-ok">مجدولة</span></td></tr>
+      <tr><td style="font-weight:700;color:var(--teal)">الشهر 6+</td><td>التسجيل في قاعدة بيانات INTERPOL SMV</td><td>M-03</td><td><span class="stag stag-ok">مجدولة</span></td></tr>
+      <tr><td style="font-weight:700;color:var(--teal)">مستمر</td><td>رصد UNECE/GSO/OFAC للتغييرات التنظيمية — تقرير شهري</td><td>R-07, G-01</td><td><span class="stag stag-ok">دائم</span></td></tr>
+    </tbody>
+  </table>
+  <div class="callout co-rust"><div class="co-icon">🔴</div><div><strong>المخاطر الحرجة الثماني تستوجب إجراءً فورياً:</strong> R-01، R-02، R-03، R-04، G-01، G-02، F-01، F-02، O-01، O-02. كل يوم تأخير في هذه المخاطر يعادل أسبوعاً من التأخير في المشروع كله.</div></div>
+  <div class="callout co-gold"><div class="co-icon">📋</div><div><strong>توصية:</strong> اجتماع أسبوعي لمتابعة المخاطر الحرجة، واجتماع شهري لمراجعة سجل المخاطر الكامل مع تحديث درجات الاحتمالية والتأثير.</div></div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-title">SCAI — Syrian Company for Automotive Industry</div>
+  <div class="footer-sub" style="margin-bottom:4px">الشركة السورية للصناعات الآلية | الإصدار 4.0 | أبريل 2026 | سري ومحمي</div>
+  <div class="footer-sub">المصادر: SAE International | ISO 3780/3779 | UNECE WP.29 | NHTSA 49 CFR 565 | GSO/SASO | EU Regulation 2018/858</div>
+</div>
+
+<script>
+// ═══ TAB NAVIGATION ═══
+function showTab(id, btn) {
+  document.querySelectorAll('.section').forEach(function(s){ s.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('tab-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+// ═══ VIN DISPLAY ═══
+(function() {
+  var chars = [
+    {ch:'S',pos:1,t:'wc'},{ch:'C',pos:2,t:'wc'},{ch:'A',pos:3,t:'wc'},
+    {ch:'B',pos:4,t:'dc'},{ch:'C',pos:5,t:'dc'},{ch:'E',pos:6,t:'dc'},
+    {ch:'5',pos:7,t:'dc'},{ch:'E',pos:8,t:'dc'},
+    {ch:'3',pos:9,t:'cc'},
+    {ch:'T',pos:10,t:'sc'},{ch:'1',pos:11,t:'sc'},{ch:'D',pos:12,t:'sc'},
+    {ch:'0',pos:13,t:'sc'},{ch:'0',pos:14,t:'sc'},{ch:'0',pos:15,t:'sc'},
+    {ch:'0',pos:16,t:'sc'},{ch:'1',pos:17,t:'sc'}
+  ];
+  var el = document.getElementById('vinDisplay');
+  if (!el) return;
+  chars.forEach(function(v) {
+    var d = document.createElement('div');
+    d.className = 'vc ' + v.t;
+    d.innerHTML = '<span class="pos">' + v.pos + '</span><span class="ch">' + v.ch + '</span>';
+    el.appendChild(d);
+  });
+})();
+
+// ═══ CHECK DIGIT CALCULATOR ═══
+function calcCD() {
+  var raw = document.getElementById('vinInput').value.trim().toUpperCase().replace(/[^A-HJ-NPR-Z0-9]/g, '');
+  var out = document.getElementById('calcRes');
+  out.style.display = 'block';
+  if (raw.length !== 17) {
+    out.textContent = 'يجب أن يحتوي VIN على 17 حرفاً صحيحاً (بدون I أو O أو Q)';
+    return;
+  }
+  var vals = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9};
+  var wts = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
+  var total = 0;
+  for (var i = 0; i < 17; i++) {
+    var c = raw[i];
+    var v = isNaN(c) ? vals[c] : parseInt(c);
+    total += v * wts[i];
+  }
+  var rem = total % 11;
+  var cd = rem === 10 ? 'X' : rem.toString();
+  var full = raw.substring(0, 8) + cd + raw.substring(9);
+  out.innerHTML = 'المجموع = ' + total + ' | باقي القسمة على 11 = ' + rem + '\n' +
+    'رقم التحقق (الموضع 9) = ' + cd + '\n' +
+    'VIN الكاملة: ' + full;
+}
+
+// ═══ ALL CHARTS ═══
+var G='#c8a84b', T='#1a5c5a', R='#8b3a2a', SL='#2c3e50', PU='#5a3d7a', T2='#2e8b87', OR='#e07b30';
+
+function mkChart(id, type, data, opts) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  new Chart(el, {type: type, data: data, options: Object.assign({responsive:true, maintainAspectRatio:true}, opts || {})});
+}
+
+mkChart('cBudget', 'doughnut', {
+  labels: ['R49 انبعاثات','WVTA أوروبا','R66/107/118','سيبراني R155/156','GSO/SABER','ERP/MES+VIN','ISO/IATF','WMI'],
+  datasets: [{data:[300,600,150,150,75,60,55,10], backgroundColor:[R,SL,'#7a3a8b',T,G,T2,PU,'#888'], borderWidth:2, borderColor:'#faf6ee'}]
+}, {plugins:{legend:{position:'right',labels:{font:{size:11},color:'#2c3e50',padding:10}}}});
+
+mkChart('cRadar', 'radar', {
+  labels: ['المتطلبات التقنية','التكلفة (عكسي)','سرعة الدخول','حجم السوق','المخاطر (عكسي)','الإمكانية الحالية'],
+  datasets: [
+    {label:'الخليج GCC', data:[65,75,80,70,75,85], borderColor:G, backgroundColor:G+'22', pointBackgroundColor:G},
+    {label:'أوروبا EU',  data:[95,25,30,85,40,40], borderColor:T, backgroundColor:T+'22', pointBackgroundColor:T},
+    {label:'سوريا',      data:[30,90,95,40,90,95], borderColor:R, backgroundColor:R+'22', pointBackgroundColor:R}
+  ]
+}, {plugins:{legend:{labels:{color:'#2c3e50',font:{size:11}}}}});
+
+mkChart('cSanctions', 'bar', {
+  labels: ['ديس 2024','فبر 2025','مايو 2025','يول 2025','سبت 2025','ديس 2025','أبر 2026'],
+  datasets: [{label:'مستوى انفتاح السوق %', data:[15,35,55,80,85,90,95], backgroundColor:[R,'#a05a30',G,T2,T,T,'#0f4f4d'], borderRadius:4}]
+}, {plugins:{legend:{display:false}}, scales:{y:{min:0,max:100,ticks:{callback:function(v){return v+'%';},color:'#5a6475'}},x:{ticks:{color:'#5a6475'}}}});
+
+mkChart('cWmi', 'bar', {
+  labels: ['إيران (NA–NE)','الإمارات (RA–RE)','السعودية (RS–R0)','إسرائيل (KF–KH)','الأردن (KS–KT)','سوريا SCAI'],
+  datasets: [{label:'نطاق WMI', data:[5,5,3,3,2,0], backgroundColor:[T,G,R,SL,PU,'#ddd'], borderRadius:4}]
+}, {indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#5a6475'}},y:{ticks:{color:'#5a6475',font:{size:12}}}}});
+
+mkChart('cReg', 'bar', {
+  labels: ['R49','R66','R155/156','R107','R13','R79','R118','R48'],
+  datasets: [
+    {label:'حد أدنى (€)', data:[100000,50000,80000,30000,25000,15000,20000,10000], backgroundColor:T+'99', borderRadius:3},
+    {label:'حد أقصى (€)', data:[500000,150000,300000,80000,60000,40000,50000,30000], backgroundColor:G+'99', borderRadius:3}
+  ]
+}, {plugins:{legend:{labels:{color:'#2c3e50'}}}, scales:{x:{ticks:{color:'#5a6475'}},y:{ticks:{color:'#5a6475',callback:function(v){return '€'+v.toLocaleString();}}}}});
+
+mkChart('cLocal', 'line', {
+  labels: ['SKD بدء','SKD نضج','CKD بدء','CKD نضج','محلي بدء','محلي نضج'],
+  datasets: [
+    {label:'نسبة المكوّن المحلي %', data:[5,15,20,40,60,80], borderColor:G, backgroundColor:G+'22', tension:0.4, fill:true, pointRadius:6, pointBackgroundColor:G},
+    {label:'مسؤولية WMI SCAI %',   data:[0,0,10,30,80,100], borderColor:T, backgroundColor:T+'11', tension:0.4, borderDash:[5,5]}
+  ]
+}, {plugins:{legend:{labels:{color:'#2c3e50'}}}, scales:{y:{min:0,max:100,ticks:{callback:function(v){return v+'%';},color:'#5a6475'}},x:{ticks:{color:'#5a6475'}}}});
+
+// Risk Charts
+new Chart(document.getElementById('cRiskFull'), {
+  type: 'bubble',
+  data: {datasets: [
+    {label:'R تنظيمية', data:[{x:3.5,y:5,r:20},{x:4,y:5,r:18},{x:3,y:4.5,r:15},{x:3,y:5,r:14},{x:4,y:4,r:13},{x:2,y:4.5,r:11},{x:3.5,y:4,r:12},{x:2,y:3.5,r:9}], backgroundColor:R+'99', borderColor:R, borderWidth:1},
+    {label:'G جيوسياسية', data:[{x:2,y:5.5,r:16},{x:4.5,y:5,r:20},{x:3,y:3.5,r:12},{x:3,y:4,r:13}], backgroundColor:SL+'99', borderColor:SL, borderWidth:1},
+    {label:'T تقنية', data:[{x:3,y:5,r:16},{x:3,y:4,r:13},{x:2,y:5,r:11},{x:2,y:5,r:13},{x:3,y:4,r:12}], backgroundColor:T+'99', borderColor:T, borderWidth:1},
+    {label:'F مالية', data:[{x:4,y:4,r:16},{x:3,y:5,r:18},{x:4.5,y:4,r:15},{x:3,y:4,r:13}], backgroundColor:PU+'99', borderColor:PU, borderWidth:1},
+    {label:'O تشغيلية', data:[{x:4,y:5,r:18},{x:3,y:5,r:16},{x:3,y:4,r:13},{x:3,y:4,r:12}], backgroundColor:T2+'99', borderColor:T2, borderWidth:1},
+    {label:'M تجارية', data:[{x:3,y:4,r:13},{x:4,y:4,r:15},{x:2,y:5,r:11}], backgroundColor:G+'99', borderColor:G, borderWidth:1}
+  ]},
+  options: {
+    responsive:true, maintainAspectRatio:true,
+    scales:{
+      x:{min:0,max:6,title:{display:true,text:'الاحتمالية',color:'#5a6475'},ticks:{color:'#5a6475'},grid:{color:'rgba(0,0,0,0.04)'}},
+      y:{min:0,max:7,title:{display:true,text:'التأثير',color:'#5a6475'},ticks:{color:'#5a6475'},grid:{color:'rgba(0,0,0,0.04)'}}
+    },
+    plugins:{legend:{position:'bottom',labels:{color:'#2c3e50',font:{size:11},padding:12}}}
+  }
+});
+
+mkChart('cRiskCat', 'doughnut', {
+  labels: ['تنظيمية (8)','جيوسياسية (4)','تقنية (5)','مالية (4)','تشغيلية (4)','تجارية (3)'],
+  datasets: [{data:[8,4,5,4,4,3], backgroundColor:[R,SL,T,PU,T2,G], borderWidth:2, borderColor:'#faf6ee'}]
+}, {plugins:{legend:{position:'bottom',labels:{color:'#2c3e50',font:{size:11},padding:8}}}});
+
+// ═══ ABBREVIATIONS ═══
+var abData = [
+  {code:'ABS',     full:'Anti-lock Braking System',                              ar:'نظام الفرملة المانع للانزلاق',                              cat:'tech'},
+  {code:'AIAG',    full:'Automotive Industry Action Group',                      ar:'مجموعة العمل لصناعة السيارات (أمريكا الشمالية)',            cat:'standards'},
+  {code:'BIS',     full:'Bureau of Indian Standards',                            ar:'مكتب المعايير الهندية',                                     cat:'standards'},
+  {code:'CBU',     full:'Completely Built Unit',                                 ar:'مركبة مكتملة التصنيع — تُستورد جاهزة بالكامل',             cat:'phases'},
+  {code:'CFR',     full:'Code of Federal Regulations (USA)',                     ar:'قانون اللوائح الفيدرالية الأمريكية',                        cat:'standards'},
+  {code:'CKD',     full:'Completely Knocked Down',                               ar:'مجموعة مفككة كاملة — تُجمَّع محلياً (15–40% توطين)',        cat:'phases'},
+  {code:'CNG',     full:'Compressed Natural Gas',                                ar:'الغاز الطبيعي المضغوط — خيار محرك في فئة VDS',              cat:'market'},
+  {code:'CoC',     full:'Certificate of Conformity',                             ar:'شهادة المطابقة',                                            cat:'cert'},
+  {code:'CSMS',    full:'Cybersecurity Management System',                       ar:'نظام إدارة الأمن السيبراني — مطلب R155',                    cat:'cert'},
+  {code:'EBS',     full:'Electronic Braking System',                             ar:'نظام الفرملة الإلكتروني',                                   cat:'tech'},
+  {code:'ECE',     full:'Economic Commission for Europe (UN)',                   ar:'اللجنة الاقتصادية لأوروبا التابعة للأمم المتحدة',           cat:'standards'},
+  {code:'ERP',     full:'Enterprise Resource Planning',                          ar:'نظام تخطيط موارد المؤسسة — SAP أو Oracle',                  cat:'tech'},
+  {code:'EU',      full:'European Union',                                        ar:'الاتحاد الأوروبي',                                          cat:'market'},
+  {code:'EUCARIS', full:'European Car and Driving License Information System',   ar:'نظام معلومات السيارات ورخص القيادة الأوروبي',               cat:'standards'},
+  {code:'EV',      full:'Electric Vehicle',                                      ar:'مركبة كهربائية',                                            cat:'tech'},
+  {code:'FEA',     full:'Finite Element Analysis',                               ar:'تحليل العناصر المحدودة — يُستخدم في اختبار R66',            cat:'tech'},
+  {code:'FMVSS',   full:'Federal Motor Vehicle Safety Standards',                ar:'معايير سلامة المركبات الفيدرالية الأمريكية',                cat:'standards'},
+  {code:'GCC',     full:'Gulf Cooperation Council',                              ar:'مجلس التعاون لدول الخليج العربي',                           cat:'market'},
+  {code:'GSO',     full:'Gulf Standards Organization',                           ar:'هيئة الخليج للمواصفات والمقاييس',                           cat:'standards'},
+  {code:'GVWR',    full:'Gross Vehicle Weight Rating',                           ar:'التصنيف الأقصى للوزن الإجمالي للمركبة',                     cat:'vin'},
+  {code:'IATF',    full:'International Automotive Task Force',                   ar:'فريق العمل الدولي للسيارات — معيار الجودة 16949',           cat:'standards'},
+  {code:'ISO',     full:'International Organization for Standardization',        ar:'المنظمة الدولية للتوحيد القياسي',                           cat:'standards'},
+  {code:'JV',      full:'Joint Venture',                                         ar:'مشروع مشترك بين SCAI وشريك OEM',                           cat:'phases'},
+  {code:'KBA',     full:'Kraftfahrt-Bundesamt',                                  ar:'المكتب الفيدرالي الألماني لشؤون السيارات — جهة اعتماد EU',  cat:'standards'},
+  {code:'KPI',     full:'Key Performance Indicator',                             ar:'مؤشر الأداء الرئيسي',                                       cat:'market'},
+  {code:'MES',     full:'Manufacturing Execution System',                        ar:'نظام تنفيذ التصنيع — يُنشئ رقم VIN عند دخول الهيكل',       cat:'tech'},
+  {code:'MENA',    full:'Middle East and North Africa',                          ar:'منطقة الشرق الأوسط وشمال أفريقيا',                         cat:'market'},
+  {code:'MY',      full:'Model Year',                                            ar:'سنة الطراز — مُشفَّرة في الموضع 10 من VIN',                cat:'vin'},
+  {code:'NHTSA',   full:'National Highway Traffic Safety Administration',        ar:'إدارة سلامة حركة المرور الأمريكية',                         cat:'standards'},
+  {code:'NSAI',    full:'National Standards Authority of Ireland',               ar:'هيئة المعايير الوطنية الأيرلندية',                          cat:'standards'},
+  {code:'OFAC',    full:'Office of Foreign Assets Control',                      ar:'مكتب مراقبة الأصول الأجنبية — وزارة الخزانة الأمريكية',   cat:'market'},
+  {code:'OEM',     full:'Original Equipment Manufacturer',                       ar:'المصنّع الأصلي للمعدات — Chery أو Yutong مثلاً',           cat:'phases'},
+  {code:'PCoC',    full:'Product Certificate of Conformity',                     ar:'شهادة مطابقة المنتج (منصة SABER)',                          cat:'cert'},
+  {code:'PLM',     full:'Product Lifecycle Management',                          ar:'إدارة دورة حياة المنتج',                                    cat:'tech'},
+  {code:'QMS',     full:'Quality Management System',                             ar:'نظام إدارة الجودة — ISO 9001 / IATF 16949',                cat:'tech'},
+  {code:'R13',     full:'UN Regulation 13 — Heavy Vehicle Braking',             ar:'لائحة الفرملة للمركبات الثقيلة ABS/EBS',                    cat:'unece'},
+  {code:'R43',     full:'UN Regulation 43 — Safety Glazing',                    ar:'لائحة الزجاج الأمني',                                       cat:'unece'},
+  {code:'R46',     full:'UN Regulation 46 — Mirrors',                           ar:'لائحة المرايا والرؤية غير المباشرة',                        cat:'unece'},
+  {code:'R48',     full:'UN Regulation 48 — Lighting Installation',             ar:'لائحة تركيب وحدات الإضاءة',                                 cat:'unece'},
+  {code:'R49',     full:'UN Regulation 49 — Emissions Diesel/Gas',              ar:'لائحة انبعاثات محركات الديزل والغاز (Euro V/VI)',           cat:'unece'},
+  {code:'R58',     full:'UN Regulation 58 — Rear Underrun Protection',          ar:'لائحة الحماية الخلفية من الاندراج (N2، N3)',                cat:'unece'},
+  {code:'R66',     full:'UN Regulation 66 — Superstructure Strength',           ar:'لائحة متانة الهيكل الفوقي — اختبار انقلاب الحافلات',       cat:'unece'},
+  {code:'R73',     full:'UN Regulation 73 — Lateral Protection',                ar:'لائحة الحماية الجانبية للمركبات التجارية',                  cat:'unece'},
+  {code:'R79',     full:'UN Regulation 79 — Steering Equipment',                ar:'لائحة معدات التوجيه',                                       cat:'unece'},
+  {code:'R89',     full:'UN Regulation 89 — Speed Limitation',                  ar:'لائحة تحديد السرعة للمركبات الثقيلة',                       cat:'unece'},
+  {code:'R107',    full:'UN Regulation 107 — General Bus Construction',         ar:'لائحة إنشاء الحافلات العامة (مخارج، ممرات، مقاعد)',         cat:'unece'},
+  {code:'R118',    full:'UN Regulation 118 — Burning Behaviour of Materials',   ar:'لائحة سلوك الاحتراق للمواد الداخلية — مقاومة الحريق',      cat:'unece'},
+  {code:'R155',    full:'UN Regulation 155 — Cybersecurity CSMS',               ar:'لائحة الأمن السيبراني — إلزامية EU منذ يوليو 2024',         cat:'unece'},
+  {code:'R156',    full:'UN Regulation 156 — Software Update Management',       ar:'لائحة إدارة تحديثات البرمجيات SUMS',                        cat:'unece'},
+  {code:'RDW',     full:'Rijksdienst voor het Wegverkeer (Netherlands)',         ar:'وكالة المركبات الهولندية — جهة اعتماد WVTA',                cat:'standards'},
+  {code:'SABER',   full:'Saudi Product Safety Program',                         ar:'منصة سيبر — برنامج سلامة المنتجات السعودي',                 cat:'market'},
+  {code:'SAE',     full:'SAE International',                                    ar:'الجمعية الدولية لمهندسي السيارات — الجهة العالمية لـ WMI',  cat:'standards'},
+  {code:'SASMO',   full:'Syrian Arab Organization for Standardization and Metrology', ar:'المنظمة العربية السورية للمواصفات والمقاييس — العضو الوطني في ISO', cat:'standards'},
+  {code:'SASO',    full:'Saudi Standards Metrology and Quality Organization',   ar:'هيئة المواصفات والمقاييس والجودة السعودية',                 cat:'standards'},
+  {code:'SCAI',    full:'Syrian Company for Automotive Industry',               ar:'الشركة السورية للصناعات الآلية — صاحبة المشروع',           cat:'market'},
+  {code:'SCoC',    full:'Shipment Certificate of Conformity',                   ar:'شهادة مطابقة الشحنة (منصة SABER)',                          cat:'cert'},
+  {code:'SKD',     full:'Semi Knocked Down',                                    ar:'مجموعة مفككة جزئياً — تجميع بسيط (5–15% توطين)',           cat:'phases'},
+  {code:'SMV',     full:'Stolen Motor Vehicle — INTERPOL Database',             ar:'قاعدة بيانات المركبات المسروقة (إنتربول — 12+ مليون سجل)', cat:'tech'},
+  {code:'SUMS',    full:'Software Update Management System',                    ar:'نظام إدارة تحديثات البرمجيات — مطلب R156',                  cat:'cert'},
+  {code:'TARA',    full:'Threat Analysis and Risk Assessment',                  ar:'تحليل التهديدات وتقييم المخاطر — منهجية الأمن السيبراني',   cat:'tech'},
+  {code:'TA',      full:'Type Approval',                                        ar:'اعتماد النوع / المطابقة النوعية',                           cat:'cert'},
+  {code:'UAE',     full:'United Arab Emirates',                                 ar:'الإمارات العربية المتحدة',                                  cat:'market'},
+  {code:'UNECE',   full:'United Nations Economic Commission for Europe',        ar:'لجنة الأمم المتحدة الاقتصادية لأوروبا',                    cat:'standards'},
+  {code:'VDS',     full:'Vehicle Descriptor Section',                           ar:'قسم وصف المركبة — المواضع 4–8 من VIN',                     cat:'vin'},
+  {code:'VIN',     full:'Vehicle Identification Number',                        ar:'رقم تعريف المركبة — 17 خانة تُعرّف كل مركبة عالمياً',      cat:'vin'},
+  {code:'VIS',     full:'Vehicle Identifier Section',                           ar:'قسم تعريف المركبة — المواضع 10–17 من VIN',                 cat:'vin'},
+  {code:'WMI',     full:'World Manufacturer Identifier',                        ar:'رمز هوية المصنّع العالمي — أول 3 خانات من VIN',            cat:'vin'},
+  {code:'WP.29',   full:'World Forum for Harmonization of Vehicle Regulations', ar:'المنتدى العالمي لتوحيد أنظمة المركبات (تحت UNECE)',         cat:'unece'},
+  {code:'WVTA',    full:'Whole Vehicle Type Approval',                          ar:'اعتماد النوع للمركبة الكاملة (الاتحاد الأوروبي)',           cat:'cert'}
+].sort(function(a,b){ return a.code.localeCompare(b.code); });
+
+var catPill = {standards:'ab-standards',vin:'ab-vin',cert:'ab-cert',phases:'ab-phases',unece:'ab-unece',tech:'ab-tech',market:'ab-market'};
+var catAr   = {standards:'معايير وهيئات',vin:'VIN / WMI',cert:'شهادات',phases:'مراحل التصنيع',unece:'لوائح UNECE',tech:'تقنية وأنظمة',market:'أسواق ومناطق'};
+
+function renderAb(data) {
+  var tbody = document.getElementById('abBody');
+  if (!tbody) return;
+  tbody.innerHTML = data.map(function(d) {
+    return '<tr class="ab-row" data-cat="' + d.cat + '" data-search="' + (d.code + ' ' + d.full + ' ' + d.ar).toLowerCase() + '">' +
+      '<td><span class="mono" style="font-weight:700;color:var(--ink)">' + d.code + '</span></td>' +
+      '<td style="font-size:13px;direction:ltr;text-align:left;color:var(--slate)">' + d.full + '</td>' +
+      '<td style="font-size:13px;color:var(--mid)">' + d.ar + '</td>' +
+      '<td><span class="ab-pill ' + (catPill[d.cat]||'ab-tech') + '">' + catAr[d.cat] + '</span></td>' +
+      '</tr>';
+  }).join('');
+  var cnt = document.getElementById('abCount');
+  if (cnt) cnt.textContent = data.length + ' مصطلح';
+}
+renderAb(abData);
+
+var curCat = 'all', curQ = '';
+function abFilter() { curQ = document.getElementById('abSearch').value.trim().toLowerCase(); applyAb(); }
+function abCat(cat, btn) {
+  curCat = cat;
+  document.querySelectorAll('.cat-btn').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  applyAb();
+}
+function applyAb() {
+  var rows = document.querySelectorAll('.ab-row');
+  var n = 0;
+  rows.forEach(function(r) {
+    var mc = curCat === 'all' || r.dataset.cat === curCat;
+    var ms = !curQ || r.dataset.search.includes(curQ);
+    if (mc && ms) { r.classList.remove('ab-row-hidden'); n++; }
+    else r.classList.add('ab-row-hidden');
+  });
+  var cnt = document.getElementById('abCount');
+  if (cnt) cnt.textContent = n + ' مصطلح';
+}
+</script>
+</body>
+</html>
