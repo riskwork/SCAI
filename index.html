@@ -830,3 +830,31 @@ function applyAb() {
 </script>
 </body>
 </html>
+<div style="text-align:center; margin-top:20px;">
+    <button onclick="showEnglish()">English</button>
+    <button onclick="showArabic()">Arabic</button>
+</div>
+
+<!-- English Content -->
+<div id="english" style="display:none; margin-top:20px;">
+    <h2>English Content</h2>
+    <p>Welcome to the SCAI project. This section contains the English version of the content.</p>
+</div>
+
+<!-- Arabic Content -->
+<div id="arabic" style="margin-top:20px;">
+    <h2>المحتوى العربي</h2>
+    <p>مرحبًا بك في مشروع SCAI. هذا القسم يحتوي على النسخة العربية من المحتوى.</p>
+</div>
+
+<script>
+function showEnglish() {
+    document.getElementById("english").style.display = "block";
+    document.getElementById("arabic").style.display = "none";
+}
+
+function showArabic() {
+    document.getElementById("english").style.display = "none";
+    document.getElementById("arabic").style.display = "block";
+}
+</script>
